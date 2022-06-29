@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  tasks:
+  - name: delete server
+    os_server:
+      name: '{{ item }}'
+      state: absent
+    with_items: "{{ lookup('file', './temp/deletehostnames').splitlines() }}"
+  - name: create servers if absent & check whether all required no of servers are present
+    os_server:
+      state: present
+      name: "{{ item }}"
+      image: Ubuntu 20.04 Focal Fossa 20200423
+      flavor: "{{ lookup('file', './flavor') }}"
+      key_name: "{{ lookup('file', './temp/ansible_key') }}"
+      auto_floating_ip: no
+      security_groups: default
+      nics:
+        - net-id: "{{ lookup('file', './temp/testnetwork.id') }}"
+    with_items: "{{ lookup('file', './temp/hostnames').splitlines() }}"
+  - name: list the vm in a file with hostnames
+    shell: openstack server list -f value >> ./temp/totalhosts && grep -nr "$2_network" ./temp/totalhosts > ./temp/requiredhosts && awk '{print $2}' ./temp/requiredhosts >> ./temp/namesofhost
+  - name: create a hosts file
+    shell: python3 ./hosts.py
+  - name: create a config file
+    shell: python3 ./config.py
+  - meta: refresh_inventory
+  - pause:
+      seconds: 5
+- hosts: webservers
+  become: yes

@@ -1,0 +1,151 @@
+#!/bin/bash
+loop=0
+for (( ; ; ))
+do
+  #echo exporting openstack cloud detials
+  . $1
+  time=$(date +'%s')
+  #echo $time
+  myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deleteadded")
+  for str in ${myArray[@]}; do
+    if [ -f $str ]; then
+	    rm $str
+    fi
+  done
+  openstack server list -f value >> ./temp/totalhosts && grep -nr "$2_network" ./temp/totalhosts > ./temp/requiredhosts && awk '{print $2}' ./temp/requiredhosts >> ./temp/namesofhost
+  #while read line; do echo $line; done < ./temp/hostnames
+    
+  echo $(date +"%T") reading no of servers required as per servers.conf file 
+  serverscount=`cat server.conf`
+	#echo $serverscount
+  ##check if extra servers are present other than required hosts or any manually added servers and delete them
+
+  if [ $loop == 0 ]; then
+    serverscount1=$serverscount
+  fi
+  #echo $serverscount1
+  for ((i = 1 ; i <= $serverscount1 ; i++)); do
+    echo "$2_dev$i" >> ./temp/hostnames
+  done
+  echo "$2_bastion" >> ./temp/hostnames
+  echo "$2_haproxy" >> ./temp/hostnames
+
+  grep -Fxvf ./temp/hostnames  ./temp/namesofhost > ./temp/deleteadded
+  value=0
+  value=`wc --lines < $"./temp/deleteadded"`
+  if [ $value -gt 0 ]
+  then
+    echo $(date +"%T") delete the extra server
+    ansible-playbook -i hosts deletemanual.yaml
+    if [ $loop == 0 ];then
+      myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost")
+      for str in ${myArray[@]}; do
+        if [ -f $str ]; then
+	        rm $str
+        fi
+      done
+      echo $(date +"%T") update the config file and hosts file
+      ansible-playbook -i hosts confighosts.yaml
+    fi
+  fi 
+    
+  
+  ##echo deleting the files if contain
+  myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost")
+  for str in ${myArray[@]}; do
+    if [ -f $str ]; then
+	    rm $str
+    fi
+  done
+  openstack server list -f value >> ./temp/totalhosts && grep -nr "$2_network" ./temp/totalhosts > ./temp/requiredhosts && awk '{print $2}' ./temp/requiredhosts >> ./temp/namesofhost
+  #while read line; do echo $line; done < ./temp/hostnames
+  noofservers=0
+  for i in `cat ./temp/namesofhost`
+  do
+    
+    if [ $i != $2_haproxy ] && [ $i != $2_bastion ]
+      then
+        noofservers=$(( $noofservers + 1 )) 
+    fi
+  done 
+  if [ $serverscount -gt $noofservers ]
+  then 
+    echo $(date +"%T") we need to deploy $(( $serverscount - $noofservers)) servers
+    
+    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost")
+    for str in ${myArray[@]}; do
+      if [ -f $str ]; then
+	      rm $str
+      fi
+    done
+    for ((i = 1 ; i <= $serverscount ; i++)); do
+      echo "$2_dev$i" >> ./temp/hostnames
+    done
+    echo $(date +"%T") running the playbook
+    ansible-playbook -i hosts deployservers.yaml
+    echo $(date +"%T") confirming ping once again 
+    ansible-playbook -i hosts ping.yaml
+    echo $(date +"%T") installing flask
+    ansible-playbook -i hosts flasksnmp.yaml
+  elif [ $serverscount -lt $noofservers ]
+  then 
+    echo $(date +"%T") delete the extra $(( $noofservers - $serverscount )) servers
+    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deletehostnames")
+    for str in ${myArray[@]}; do
+      if [ -f $str ]; then
+	      rm $str
+      fi
+    done
+    for ((i = $noofservers ; i > $serverscount ; i--)); do
+      echo "$2_dev$i" >> ./temp/deletehostnames
+    done
+    for ((i = 1 ; i <= $serverscount ; i++)); do
+      echo "$2_dev$i" >> ./temp/hostnames
+    done
+    echo $(date +"%T") running the playbook
+    ansible-playbook -i hosts deleteservers.yaml
+    echo $(date +"%T") confirming ping once again 
+    ansible-playbook -i hosts ping.yaml
+    if [ $serverscount -gt 0 ];then 
+      if [ $loop == 0 ];then
+        echo $(date +"%T") for the first run of operate it installs flask in webservers
+        ansible-playbook -i hosts flasksnmp.yaml
+      else
+        echo $(date +"%T") update the haproxy
+        ansible-playbook -i hosts haproxytest.yaml
+    fi fi
+    time1=$(date +'%s')
+    time2=$(( $time1 - $time ))
+    if [ $time2 -lt 30 ]
+    then
+      time2=$(( 30 - $time2 ))
+      echo $(date +"%T") we are having zero number of servers ....sleeping for $time2 seconds
+      sleep $time2
+    fi
+  else
+    if [ $loop == 0 ];then
+      echo $(date +"%T") for the first time runnning operate it installs flask
+      echo we have required number of servers: $serverscount 
+      ansible-playbook -i hosts flasksnmp.yaml
+    else
+      time1=$(date +'%s')
+      time2=$(( $time1 - $time ))
+      if [ $time2 -lt 30 ]
+      then
+        time2=$(( 30 - $time2 ))
+        echo $(date +"%T") we are having required number of servers ....sleeping for $time2 seconds
+        sleep $time2
+      fi
+    fi
+  fi 
+  loop=$(( $loop + 1 ))
+  serverscount1=$serverscount
+done
+
+#. $1
+#ansible-playbook -i hosts openstack2.yaml
+#echo confirming ping once again 
+#ansible-playbook -i hosts ping.yaml
+
+#ansible-playbook -i hosts flasksnmp.yaml
+

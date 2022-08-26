@@ -21,6 +21,4 @@
     shell: python3 ./config.py
   - meta: refresh_inventory
   - pause:
-      seconds: 20
-- hosts: webservers
-  become: yes
+      seconds: 10

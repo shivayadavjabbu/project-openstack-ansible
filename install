@@ -1,3 +1,4 @@
+#!/bin/bash
 if [ -d ./temp ]; then
   echo "deleting temp file "
   rm -r temp
@@ -47,4 +48,4 @@ echo ${3::-4} >> ./temp/publickeyfile
 . $1
 ansible-playbook -i hosts openstack1.yaml
 echo $(date +"%T") confirming ping of hosts once again
-ansible-playbook -i hosts ping.yaml
+ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping.yaml

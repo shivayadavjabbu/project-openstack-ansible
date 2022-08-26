@@ -27,5 +27,3 @@
   - meta: refresh_inventory
   - pause:
       seconds: 5
-- hosts: webservers
-  become: yes

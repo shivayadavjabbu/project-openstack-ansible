@@ -55,11 +55,3 @@
     shell: openstack server list -f value >> ./temp/hosts8
   - name: create hosts file and config file
     shell: python3 config1.py && python3 hosts1.py
-  
-
-  - meta: refresh_inventory
-  - pause:
-      seconds: 10
-- hosts: webservers
-  gather_facts: yes
-

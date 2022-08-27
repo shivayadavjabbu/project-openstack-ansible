@@ -1,5 +1,10 @@
 ---
-- hosts: webservers
+- hosts: localhost
+  tasks:
+  - meta: refresh_inventory
+  - pause:
+      seconds: 20
+- hosts: all
   become: yes
   tasks: 
   - name: ping all hosts 

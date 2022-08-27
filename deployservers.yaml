@@ -19,6 +19,3 @@
     shell: python3 ./hosts.py
   - name: create a config file
     shell: python3 ./config.py
-  - meta: refresh_inventory
-  - pause:
-      seconds: 10

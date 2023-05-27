@@ -6,7 +6,7 @@ do
   . $1
   time=$(date +'%s')
   #echo $time
-  myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deleteadded")
+  myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deleteadded" ./temp/addmanuallydeleted)
   for str in ${myArray[@]}; do
     if [ -f $str ]; then
 	    rm $str
@@ -29,8 +29,10 @@ do
   done
   echo "$2_bastion" >> ./temp/hostnames
   echo "$2_haproxy" >> ./temp/hostnames
+  echo "$2_backuphaproxy" >> ./temp/hostnames
 
   grep -Fxvf ./temp/hostnames  ./temp/namesofhost > ./temp/deleteadded
+  grep -Fxvf ./temp/namesofhost ./temp/hostnames > ./temp/addmanuallydeleted
   value=0
   value=`wc --lines < $"./temp/deleteadded"`
   if [ $value -gt 0 ]
@@ -45,7 +47,11 @@ do
         fi
       done
       echo $(date +"%T") update the config file and hosts file
-      ansible-playbook -i hosts confighosts.yaml
+      python3 ./hosts.py $2
+      python3 ./config.py $2
+      echo $(date +"%T") install prometheus and configure
+      python3 prometheus.py
+      ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
     fi
   fi 
     
@@ -63,7 +69,7 @@ do
   for i in `cat ./temp/namesofhost`
   do
     
-    if [ $i != $2_haproxy ] && [ $i != $2_bastion ]
+    if [ $i != $2_haproxy ] && [ $i != $2_bastion ] && [ $i != $2_backuphaproxy ]
       then
         noofservers=$(( $noofservers + 1 )) 
     fi
@@ -72,7 +78,7 @@ do
   then 
     echo $(date +"%T") we need to deploy $(( $serverscount - $noofservers)) servers
     
-    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost")
+    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/fixedip")
     for str in ${myArray[@]}; do
       if [ -f $str ]; then
 	      rm $str
@@ -80,17 +86,25 @@ do
     done
     for ((i = 1 ; i <= $serverscount ; i++)); do
       echo "$2_dev$i" >> ./temp/hostnames
+      echo "192.168.0.$((20 + i))" >> ./temp/fixedip
     done
     echo $(date +"%T") running the playbook
     ansible-playbook -i hosts deployservers.yaml
+    python3 config.py $2
+    python3 hosts.py $2
     echo $(date +"%T") confirming ping once again 
     ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping.yaml
+    echo $(date +"%T") install prometheus and configure
+    python3 prometheus.py
+    ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
     echo $(date +"%T") installing flask
     ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts flasksnmp.yaml
+    python3 keepalived.py
+    ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
   elif [ $serverscount -lt $noofservers ]
   then 
     echo $(date +"%T") delete the extra $(( $noofservers - $serverscount )) servers
-    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deletehostnames")
+    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deletehostnames" "./temp/fixedip")
     for str in ${myArray[@]}; do
       if [ -f $str ]; then
 	      rm $str
@@ -101,17 +115,29 @@ do
     done
     for ((i = 1 ; i <= $serverscount ; i++)); do
       echo "$2_dev$i" >> ./temp/hostnames
+      echo "192.168.0.$((20 + i))" >> ./temp/fixedip
     done
     echo $(date +"%T") running the playbook
     ansible-playbook -i hosts deleteservers.yaml
+    python3 config.py $2
+    python3 hosts.py $2
     echo $(date +"%T") confirming ping once again 
     ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping.yaml
     if [ $serverscount -gt 0 ];then 
       if [ $loop == 0 ];then
+	echo $(date +"%T") install prometheus and configure
+        python3 prometheus.py
+        ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
         echo $(date +"%T") for the first run of operate it installs flask in webservers
         ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts flasksnmp.yaml
+        python3 keepalived.py
+        ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
       else
+	echo $(date +"%T") install prometheus and configure
+        python3 prometheus.py
+        ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
         echo $(date +"%T") update the haproxy
+	python3 keepalived.py
         ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
     fi fi
     time1=$(date +'%s')
@@ -124,9 +150,10 @@ do
     fi
   else
     if [ $loop == 0 ];then
-      echo $(date +"%T") for the first time runnning operate it installs flask
       echo we have required number of servers: $serverscount 
       ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts flasksnmp.yaml
+      python3 keepalived.py
+      ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
     else
       time1=$(date +'%s')
       time2=$(( $time1 - $time ))
@@ -141,11 +168,3 @@ do
   loop=$(( $loop + 1 ))
   serverscount1=$serverscount
 done
-
-#. $1
-#ansible-playbook -i hosts openstack2.yaml
-#echo confirming ping once again 
-#ansible-playbook -i hosts ping.yaml
-
-#ansible-playbook -i hosts flasksnmp.yaml
-

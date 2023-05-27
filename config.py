@@ -1,63 +1,46 @@
-file1 = open('./temp/requiredhosts')
-new = []
-for line in file1:
-    new.append(line)
+import sys
+host_name = sys.argv[1]
+file1=open('./temp/publickeyfile')
+pkeyfile = file1.readline()
 file1.close()
-file2=open('./temp/publickeyfile')
-pkeyfile = file2.readline()
+pkeyfile = pkeyfile.rstrip()
+file2=open('./temp/config')
+op_file = file2.readline()
 file2.close()
-file4=open('./temp/config')
-op_file = file4.readline()
+file3=open('./server.conf')
+no_ofservers = file3.readline()
+file3.close()
+file4=open('./temp/bastionfloating')
+bastion_ip = file4.readline()
 file4.close()
-f = open(f"./{op_file}".replace("\n",""), "w")
-f.write("PasswordAuthentication no\n")
-f.write("StrictHostKeyChecking no\n\n")
-for i in new:
-    if len(i) > 5:
-        new_line = i.split(" ")
-        if len(new_line[1]) > 7:
-            #print(new_line[1][-7:])
-            if (new_line[1][-7:]) == 'bastion':
-                bast_ip = new_line[1]
-                #print(bast_ip)
-for line in new:
-    if len(line)>5:
-        linesplit = line.split(" ")
-        f.write("host ")
-        f.write(linesplit[1])
-        f.write("\n")
-        if len(linesplit) == 10:
 
-            ip = linesplit[3].split("=")
-            ip = ip[1]
-            #print(ip)
-        elif len(linesplit)==12:
-            if linesplit[1][-7:]=='bastion':
-                ip = linesplit[5].strip("[',]}")
-            else:
-                ip = linesplit[4].strip("[',]}")
-
-        else:
-            if linesplit[1][-7:]=='haproxy':
-                ip=linesplit[3].split("=")
-                ip=ip[1].strip(",")
-                #print(ip)
-            elif linesplit[1][-7:]=='bastion':
-                ip = linesplit[4]
-            else:
-                ip = linesplit[4].strip("[',]}")
-
+def config_write(pkeyfile,ip,h_name,bast_ip):
+        f.write(f"host {h_name}\n")
         f.write("port 22\n")
         f.write("user ubuntu\n")
         f.write(f"UserKnownHostsFile=~/dev/null\n")
-        f.write(f"IdentityFile {pkeyfile}") # changes as per user
-        f.write("hostname ")
-        #print(new_line[1][-7:])
-        f.write(ip)
-        f.write("\n")
-        if linesplit[1] != bast_ip:
+        f.write(f"IdentityFile {pkeyfile}\n") # changes as per user
+        f.write(f"hostname {ip}\n")
+        if h_name!=bast_ip:
             f.write(f"proxyjump {bast_ip}\n")
-        
-    f.write("\n")
+        f.write("\n")
 
+f = open(f"./{op_file}".replace("\n",""), "w")
+f.write("PasswordAuthentication no\n")
+f.write("StrictHostKeyChecking no\n\n")
+ip = bastion_ip
+h_name = host_name+"_bastion"
+bast_ip  = h_name
+config_write(pkeyfile,ip,h_name,bast_ip)
+ip = "192.168.0.11"
+h_name = host_name+"_haproxy"
+config_write(pkeyfile,ip,h_name,bast_ip)
+h_name = host_name+"_backuphaproxy"
+ip = "192.168.0.12"
+config_write(pkeyfile,ip,h_name,bast_ip)
+
+for i in range(int(no_ofservers)):
+        h_name=host_name+"_dev"+str(1+i)
+        ip = "192.168.0."+str(21+i)
+        config_write(pkeyfile,ip,h_name,bast_ip)
 f.close()

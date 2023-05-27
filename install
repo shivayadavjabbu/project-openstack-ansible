@@ -22,6 +22,7 @@ if [ -f ./temp/hostnames ]; then
 fi
 for ((i = 1 ; i <= $value ; i++)); do
   echo "$2_dev$i" >> ./temp/hostnames
+  echo "192.168.0.$((20 + i))" >> ./temp/fixedip
 done
 touch ./hosts
 touch ./temp/securityname
@@ -35,18 +36,43 @@ touch ./temp/publickeyfile
 cp $3 ./temp/publickey
 touch ./temp/bastion
 touch ./temp/haproxy
+touch ./temp/haproxy1
 touch ./temp/config
+touch ./temp/availablefloatingip
 echo $2_key >> ./temp/ansible_key
 echo $2_router >> ./temp/router
 echo $2_network >> ./temp/network
 echo $2_bastion >> ./temp/bastion
 echo $2_haproxy >> ./temp/haproxy
+echo $2_backuphaproxy >> ./temp/haproxy1
 echo $2_subnet >> ./temp/subnet
-echo $2_security >> ./temp/securityname
+echo $2_securitygroup >> ./temp/securityname
 echo $2_SSHconfig >> ./temp/config
 echo ${3::-4} >> ./temp/publickeyfile
 . $1
-ansible-playbook -i hosts openstack1.yaml
-echo $(date +"%T") confirming ping of hosts once again
-ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping1.yaml
+
+echo "checking no of floating ip and removing the floating ip's if more than 2"
+
+openstack floating ip list -f value | awk '{print $2}' >> ./temp/availablefloatingip
+
+if [ $(wc -l < ./temp/availablefloatingip) -gt 2 ]; then
+	echo "We have more than two floating ip's "
+	tail -n +3 ./temp/availablefloatingip | xargs -I {} openstack floating ip delete {}
+fi
+
+
+
+ansible-playbook create_net_key.yaml
+ansible-playbook security_group.yaml
+ansible-playbook create_bastion.yaml
+ansible-playbook create_haproxy.yaml
+ansible-playbook deployservers.yaml
+echo "create hosts file and config file"
+python3 config.py $2
+python3 hosts.py $2
+echo $(date +"%T") confirming ping of hosts
+#ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping1.yaml
 ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping.yaml
+echo $(date +"%T") install prometheus and configure
+python3 prometheus.py
+ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml

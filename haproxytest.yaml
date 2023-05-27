@@ -2,8 +2,7 @@
 - hosts: webservers
   gather_facts: yes
 - hosts: haproxy
-  gather_facts: yes
-  become: yes
+  become: true
   vars:
     haproxy_maxconns: 4096
     haproxy_backlog: 2
@@ -14,7 +13,9 @@
     haproxy_http_timeout: 15s
     haproxy_balance: leastconn
     haproxy_frontend_port: 5000
+
   tasks:
+
   - name: Update cache
     become: yes
     apt:
@@ -26,6 +27,9 @@
     apt:
       name: haproxy
       state: latest
+  - name: install pip3
+    apt: name=python3-pip state=present update_cache=yes
+    tags: ansible
 
   - name: Deploy HAProxy
     template:
@@ -56,6 +60,23 @@
       name: nginx
       state: restarted
 
+  - name: Install Keepalived
+    apt:
+      name: keepalived
+      state: present
+
+  - name: Copy Keepalived configuration file
+    copy:
+      src: ./temp/keepalived.conf
+      dest: /etc/keepalived/keepalived.conf
+
+  - name: Enable and start Keepalived service
+    service:
+      name: keepalived
+      state: started
+      enabled: true
+
+
   - name: haproxy redumentary function test-1
     uri: url=http://localhost:5000/ return_content=yes
     register: html_body
@@ -70,12 +91,12 @@
     uri: url=http://localhost:5000/ return_content=yes
     register: html_body
   - debug: msg='{{ html_body.content }}'
-  
+
   - name: haproxy redumentary function test-4
     uri: url=http://localhost:5000/ return_content=yes
     register: html_body
   - debug: msg='{{ html_body.content }}'
-  
+
   - name: haproxy redumentary function test-5
     uri: url=http://localhost:5000/ return_content=yes
     register: html_body

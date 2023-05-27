@@ -1,35 +1,26 @@
-file1 = open('./temp/requiredhosts')
-new = []
-for line in file1:
-    if len(line)>5:
-        new.append(line)
+import sys
+h_name = sys.argv[1]
+file1=open('./server.conf')
+no_servers = file1.readline()
+no_servers = no_servers.rstrip()
 file1.close()
-file2=open('./temp/haproxy')
-hproxy = file2.readline()
-file2.close()
 f = open("./hosts", "w")
-
+f.write("[Bastionhost]\n")
+hostname = h_name+"_bastion"
+f.write(f"{hostname}\n")
 f.write("[haproxy]\n")
-f.write(hproxy)
+hostname = h_name+"_haproxy"
+f.write(f"{hostname}\n")
+hostname=h_name+"_backuphaproxy"
+f.write(f"{hostname}\n")
 f.write("\n")
-
 f.write("[webservers]")
 f.write("\n")
-for line in new:
-    linesplit = line.split(" ")
-    #print(linesplit[1])
-    if len(linesplit[1])>7:
-        #print(linesplit[1][-7:])
-        if (linesplit[1][-7:]) != 'haproxy' and (linesplit[1][-7:]) != 'bastion':
-            f.write(linesplit[1])
-            #print(linesplit[1])
-            f.write("\n")
-    else:
-        f.write(linesplit[1])
-        f.write("\n")
-
-
+for i in range(int(no_servers)):
+    hostname = h_name+"_dev"+str(1+i)
+    f.write(f"{hostname}\n")
 f.write("\n")
 f.write("[all:vars]\n")
 f.write("ansible_user=ubuntu")
+f.write("\n")
 f.close()

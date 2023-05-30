@@ -14,7 +14,7 @@
       flavor: "{{ lookup('file', './flavor') }}"
       key_name: "{{ lookup('file', './temp/ansible_key') }}"
       auto_floating_ip: no
-      security_groups: default
+      security_groups: "{{ lookup('file', './temp/securityname') }}"
       nics:
         - net-id: "{{ lookup('file', './temp/testnetwork.id') }}"
           fixed_ip: "{{ item.1 }}"

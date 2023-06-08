@@ -1,6 +1,14 @@
 # project-openstack-ansible
---> Update the deployment machine by installing the latest version of Python 3, Ansible, and the OpenStack client.\
---> The deployment involves three files: install, operate, and cleanup. Each file should be extended with the OpenStack RC file, tag name, and public key file. For example: install <openrc> <tag> <ssh_key>.\
---> Start by running the install file. It will create a keypair, router, subnet, network, and Security group. The number of servers to be created is specified in the server.conf file \
---> After running the install file, proceed to run the operate file. This file runs in a loop indefinitely. In each iteration, it checks the server.conf file and either deletes existing servers or builds new servers based on the file's content.
---> Finally, run the cleanup file to delete servers, routers, floating IPs, subnets, networks, and the keypair.
+first update the deployment machine.
+install update version of python3,
+install ansible latest version,
+install openstack-client,
+there are three files instal operate and cleanup
+each file should extend with openstack.rc file, tagname, pubkey file 
+example: install <openrc> <tag> <ssh_key>
+first Run install file,
+ it creates a keypair,router,subnet,network and servers(the no of servers to be created is given in the server.conf), 
+after running the install now run operate.
+operate runs in loops for infinite times. In every step it checks for the server.conf file and deletes servers or build servers according to teh file.
+the last step run the cleanup file for deleting servers,routers,floating_ip,subnet,network,keypair.
+

@@ -3,20 +3,20 @@
   tasks:
   - name: delete keypairs
     os_keypair:
-      name: "{{ lookup('file', './temp/ansible_key') }}"
+      name: "{{ variable }}_key"
       state: absent
   - name: delete floating ip of bastion
     os_floating_ip:
       state: absent
       floating_ip_address: "{{ lookup('file', './temp/bastionfloating') }}"
       network: ext-net
-      server: "{{ lookup('file', './temp/bastion') }}"
+      server: "{{ variable }}_bastion"
     ignore_errors: yes
   - name: delete floating ip of haproxy
     os_floating_ip:
       state: absent
       floating_ip_address: "{{ lookup('file', './temp/haproxyfloating') }}"
-      server: "{{ lookup('file', './temp/haproxy') }}"
+      server: "{{ variable }}_haproxy"
       network: ext-net
     ignore_errors: yes
   - name : list servers
@@ -28,18 +28,18 @@
     with_items: "{{ lookup('file', './temp/cleanupservernames').splitlines() }}"
   - name: delete router
     os_router:
-      name:  "{{ lookup('file', './temp/router') }}"
+      name:  "{{ variable }}_router"
       state: absent
   - name: delete subnet
     os_subnet:
-      name:  "{{ lookup('file', './temp/subnet') }}"
+      name:  "{{ variable }}_subnet"
       cidr: 192.168.0.0/24
       state: absent
   - name: delete network
     os_network:
-      name:  "{{ lookup('file', './temp/network') }}"
+      name:  "{{ variable }}_network"
       state: absent
   - name: delete security group
     os_security_group:
       state: absent
-      name: "{{ lookup('file', './temp/securityname') }}"
+      name: "{{ variable }}_securitygroup"

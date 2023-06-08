@@ -4,12 +4,12 @@
   - name: Create server devhaproxy
     os_server:
       state: present
-      name: "{{ lookup('file', './temp/haproxy') }}"
+      name: "{{ variable }}_haproxy"
       image: Ubuntu 22.04.1 Jammy Jellyfish 230124
       flavor: "{{ lookup('file', './flavor') }}"
       auto_floating_ip: yes
-      security_groups: "{{ lookup('file', './temp/securityname') }}"
-      key_name: "{{ lookup('file', './temp/ansible_key') }}"
+      security_groups: "{{ variable }}_securitygroup"
+      key_name: "{{ variable }}_key"
       nics:
         - net-id: "{{ lookup('file', './temp/testnetwork.id') }}"
           fixed_ip: 192.168.0.11
@@ -18,12 +18,12 @@
   - name: Create server devhaproxy1
     os_server:
       state: present
-      name: "{{ lookup('file', './temp/haproxy1') }}"
+      name: "{{ variable }}_backuphaproxy"
       image: Ubuntu 22.04.1 Jammy Jellyfish 230124
       flavor: "{{ lookup('file', './flavor') }}"
       auto_floating_ip: no
-      security_groups: "{{ lookup('file', './temp/securityname') }}"
-      key_name: "{{ lookup('file', './temp/ansible_key') }}"
+      security_groups: "{{ variable }}_securitygroup"
+      key_name: "{{ variable }}_key"
       nics:
         - net-id: "{{ lookup('file', './temp/testnetwork.id') }}"
           fixed_ip: 192.168.0.12

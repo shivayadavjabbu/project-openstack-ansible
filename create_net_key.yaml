@@ -5,12 +5,12 @@
   - name: Create new keypair from current user's default SSH key
     os_keypair:
       state: present
-      name: "{{ lookup('file', './temp/ansible_key') }}"
-      public_key_file: ./temp/publickey
+      name: "{{ variable }}_key"
+      public_key_file: "{{ pubkey }}"
   - name: Create the test network
     os_network:
       state: present
-      name: "{{ lookup('file', './temp/network') }}"
+      name: "{{ variable }}_network"
       external: False
       shared: False
     register: testnet_network
@@ -19,8 +19,8 @@
   - name: Create the test subnet
     os_subnet:
       state: present
-      network_name: "{{ testnet_network.id }}"
-      name: "{{ lookup('file', './temp/subnet') }}"
+      network_name: "{{ testnet_network.id }}" 
+      name: "{{ variable }}_subnet"
       ip_version: 4
       cidr: 192.168.0.0/24
       gateway_ip: 192.168.0.1
@@ -34,9 +34,9 @@
     ignore_errors: yes #for some reasons, re-running this task gives errors
     os_router:
       state: present
-      name: "{{ lookup('file', './temp/router') }}"
+      name: "{{ variable }}_router"
       network: ext-net
       interfaces:
-        - "{{ lookup('file', './temp/subnet') }}"
+        - "{{ variable }}_subnet"
     register: testnet_router
   - local_action: copy content={{ testnet_router }} dest=./temp/testnetrouter

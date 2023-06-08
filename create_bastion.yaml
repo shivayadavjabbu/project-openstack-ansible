@@ -4,12 +4,12 @@
   - name: Create server instance BastionNSO
     os_server:
       state: present
-      name: "{{ lookup('file', './temp/bastion') }}"
+      name: "{{ variable }}_bastion"
       image: Ubuntu 22.04.1 Jammy Jellyfish 230124
         #flavor: b.1c4gb
       flavor: "{{ lookup('file', './flavor') }}"
-      security_groups: "{{ lookup('file', './temp/securityname') }}"
-      key_name: "{{ lookup('file', './temp/ansible_key') }}"
+      security_groups: "{{ variable }}_securitygroup"
+      key_name: "{{ variable }}_key"
       nics:
         - net-id: "{{ lookup('file', './temp/testnetwork.id') }}"
           fixed_ip: 192.168.0.10

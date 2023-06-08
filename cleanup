@@ -1,6 +1,6 @@
 #!/bin/bash
 . $1
-ansible-playbook remove_cleanup.yaml
+ansible-playbook remove_cleanup.yaml --extra-vars "variable=$2"
 bastion_floating_ip=$(cat ./temp/bastionfloating)
 openstack floating ip delete "$bastion_floating_ip"
 haproxy_floating_ip=$(cat ./temp/haproxyfloating)

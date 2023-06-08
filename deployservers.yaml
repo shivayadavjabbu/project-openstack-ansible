@@ -7,9 +7,9 @@
       name: "{{ item.0 }}"
       image: Ubuntu 22.04.1 Jammy Jellyfish 230124
       flavor: "{{ lookup('file', './flavor') }}"
-      key_name: "{{ lookup('file', './temp/ansible_key') }}"
+      key_name: "{{ variable }}_key"
       auto_floating_ip: no
-      security_groups: "{{ lookup('file', './temp/securityname') }}"
+      security_groups: "{{ variable }}_securitygroup"
       nics:
         - net-id: "{{ lookup('file', './temp/testnetwork.id') }}"
           fixed_ip: "{{ item.1 }}"

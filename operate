@@ -1,170 +1,167 @@
 #!/bin/bash
+
 loop=0
 for (( ; ; ))
-do
-  #echo exporting openstack cloud detials
-  . $1
-  time=$(date +'%s')
-  #echo $time
-  myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deleteadded" ./temp/addmanuallydeleted)
-  for str in ${myArray[@]}; do
-    if [ -f $str ]; then
-	    rm $str
-    fi
-  done
-  openstack server list -f value >> ./temp/totalhosts && grep -nr "$2_network" ./temp/totalhosts > ./temp/requiredhosts && awk '{print $2}' ./temp/requiredhosts >> ./temp/namesofhost
-  #while read line; do echo $line; done < ./temp/hostnames
-    
-  echo $(date +"%T") reading no of servers required as per servers.conf file 
-  serverscount=`cat server.conf`
-	#echo $serverscount
-  ##check if extra servers are present other than required hosts or any manually added servers and delete them
+do 	
+	. $1 
+        time=$(date +'%s')
+	present_servers=$(cat ./server.conf) #read the number of backend servers required
+	update_prometheus=0 #check and update prometheus 
+	update_haproxy=0 #check and update haproxy
+	update_webserver=0  #Check and install Flask in web servers
 
-  if [ $loop == 0 ]; then
-    serverscount1=$serverscount
-  fi
-  #echo $serverscount1
-  for ((i = 1 ; i <= $serverscount1 ; i++)); do
-    echo "$2_dev$i" >> ./temp/hostnames
-  done
-  echo "$2_bastion" >> ./temp/hostnames
-  echo "$2_haproxy" >> ./temp/hostnames
-  echo "$2_backuphaproxy" >> ./temp/hostnames
+#######################################################################
+	#checking bastion host and haproxy hosts reachable
+        pkill -f 'ansible'
+	timeout 60 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts Bastionhost -m ping | grep "UNREACHABLE" | awk '{print $1}' > ./temp/pingunreachable
+	if grep -q "$2_bastion" ./temp/pingunreachable; then
+		echo  $(date +"%T") "bastion host is unreachable creating the bastion host" 
+ 		ansible-playbook ./ansible_files/create_bastion.yaml --extra-vars "variable=$2"
+		#modifying the config file with new floating ip of bastion
+		sed -i "9d" "$2"_SSHconfig
+		line=$(head -n 1 ./temp/bastionfloating)
+		sed -i "8a\\hostname $line" "$2"_SSHconfig
+		update_prometheus=1
+		echo  $(date +"%T") "waiting for the bastion hosts to active"
+		while true; do 
+			if timeout 60 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts Bastionhost -m ping 2>./temp/null | grep -q "UNREACHABLE" ; then
+           			sleep 5s
+			else
+				break
+			fi 
+	        done
 
-  grep -Fxvf ./temp/hostnames  ./temp/namesofhost > ./temp/deleteadded
-  grep -Fxvf ./temp/namesofhost ./temp/hostnames > ./temp/addmanuallydeleted
-  value=0
-  value=`wc --lines < $"./temp/deleteadded"`
-  if [ $value -gt 0 ]
-  then
-    echo $(date +"%T") delete the extra server
-    ansible-playbook -i hosts deletemanual.yaml
-    if [ $loop == 0 ];then
-      myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost")
-      for str in ${myArray[@]}; do
-        if [ -f $str ]; then
-	        rm $str
+	fi
+########################################################################
+	#checking haproxy and backuphaproxy 
+	pkill -f 'ansible'
+        timeout 60 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxy -m ping | grep "UNREACHABLE" | awk '{print $1}' > ./temp/pingunreachable
+        if grep -q  "$2_haproxy\|$2_backuphaproxy" ./temp/pingunreachable; then
+                echo  $(date +"%T") "Either haproxy or backuphaproxy is not unreachable checking haproxy and backuphaproxy"
+                ansible-playbook ./ansible_files/create_haproxy.yaml --extra-vars "variable=$2"
+		echo  $(date +"%T") "waiting for the haproxy and backuphapproxy to active"
+                while true; do
+                        if timeout 60 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxy -m ping 2>./temp/null | grep -q "UNREACHABLE" ; then
+				sleep 5s
+       			else
+                                python3 ./python_files/keepalived.py
+                                update_haproxy=1
+                                break
+                        fi
+                done
         fi
-      done
-      echo $(date +"%T") update the config file and hosts file
-      python3 ./hosts.py $2
-      python3 ./config.py $2
-      echo $(date +"%T") install prometheus and configure
-      python3 prometheus.py
-      ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
-    fi
-  fi 
-    
-  
-  ##echo deleting the files if contain
-  myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost")
-  for str in ${myArray[@]}; do
-    if [ -f $str ]; then
-	    rm $str
-    fi
-  done
-  openstack server list -f value >> ./temp/totalhosts && grep -nr "$2_network" ./temp/totalhosts > ./temp/requiredhosts && awk '{print $2}' ./temp/requiredhosts >> ./temp/namesofhost
-  #while read line; do echo $line; done < ./temp/hostnames
-  noofservers=0
-  for i in `cat ./temp/namesofhost`
-  do
-    
-    if [ $i != $2_haproxy ] && [ $i != $2_bastion ] && [ $i != $2_backuphaproxy ]
-      then
-        noofservers=$(( $noofservers + 1 )) 
-    fi
-  done 
-  if [ $serverscount -gt $noofservers ]
-  then 
-    echo $(date +"%T") we need to deploy $(( $serverscount - $noofservers)) servers
-    
-    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/fixedip")
-    for str in ${myArray[@]}; do
-      if [ -f $str ]; then
-	      rm $str
-      fi
-    done
-    for ((i = 1 ; i <= $serverscount ; i++)); do
-      echo "$2_dev$i" >> ./temp/hostnames
-      echo "192.168.0.$((20 + i))" >> ./temp/fixedip
-    done
-    echo $(date +"%T") running the playbook
-    ansible-playbook -i hosts deployservers.yaml
-    python3 config.py $2
-    python3 hosts.py $2
-    echo $(date +"%T") confirming ping once again 
-    ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping.yaml
-    echo $(date +"%T") install prometheus and configure
-    python3 prometheus.py
-    ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
-    echo $(date +"%T") installing flask
-    ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts flasksnmp.yaml
-    python3 keepalived.py
-    ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
-  elif [ $serverscount -lt $noofservers ]
-  then 
-    echo $(date +"%T") delete the extra $(( $noofservers - $serverscount )) servers
-    myArray=("./temp/totalhosts" "./temp/requiredhosts" "./temp/hostnames" "./temp/namesofhost" "./temp/deletehostnames" "./temp/fixedip")
-    for str in ${myArray[@]}; do
-      if [ -f $str ]; then
-	      rm $str
-      fi
-    done
-    for ((i = $noofservers ; i > $serverscount ; i--)); do
-      echo "$2_dev$i" >> ./temp/deletehostnames
-    done
-    for ((i = 1 ; i <= $serverscount ; i++)); do
-      echo "$2_dev$i" >> ./temp/hostnames
-      echo "192.168.0.$((20 + i))" >> ./temp/fixedip
-    done
-    echo $(date +"%T") running the playbook
-    ansible-playbook -i hosts deleteservers.yaml
-    python3 config.py $2
-    python3 hosts.py $2
-    echo $(date +"%T") confirming ping once again 
-    ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping.yaml
-    if [ $serverscount -gt 0 ];then 
-      if [ $loop == 0 ];then
-	echo $(date +"%T") install prometheus and configure
-        python3 prometheus.py
-        ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
-        echo $(date +"%T") for the first run of operate it installs flask in webservers
-        ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts flasksnmp.yaml
-        python3 keepalived.py
-        ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
-      else
-	echo $(date +"%T") install prometheus and configure
-        python3 prometheus.py
-        ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
-        echo $(date +"%T") update the haproxy
-	python3 keepalived.py
-        ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
-    fi fi
-    time1=$(date +'%s')
-    time2=$(( $time1 - $time ))
-    if [ $time2 -lt 30 ]
-    then
-      time2=$(( 30 - $time2 ))
-      echo $(date +"%T") we are having zero number of servers ....sleeping for $time2 seconds
-      sleep $time2
-    fi
-  else
-    if [ $loop == 0 ];then
-      echo we have required number of servers: $serverscount 
-      ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts flasksnmp.yaml
-      python3 keepalived.py
-      ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts haproxytest.yaml
-    else
-      time1=$(date +'%s')
-      time2=$(( $time1 - $time ))
-      if [ $time2 -lt 30 ]
-      then
-        time2=$(( 30 - $time2 ))
-        echo $(date +"%T") we are having required number of servers ....sleeping for $time2 seconds
-        sleep $time2
-      fi
-    fi
-  fi 
-  loop=$(( $loop + 1 ))
-  serverscount1=$serverscount
+##################################################################
+	###checking the backend servers and installing the newservers updating the hosts and config file. 
+	pkill -f 'ansible'
+        timeout 60 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts webservers -m ping | grep "SUCCESS" | awk '{print $1}' > ./temp/pingreachable
+        reachable=$(wc -l < ./temp/pingreachable)
+	if [[ $present_servers -gt $reachable ]]; then 
+		value=$(( $present_servers- $reachable ))
+		echo "we need to deploy $value servers to satisfy required number of servers"
+		mv ./temp/pingreachable ./temp/hostnames
+		count_ofservers=1
+		servers_added=0
+		while true; do
+			if grep -Fxq "$2_dev$count_ofservers"  "./temp/hostnames" ; then
+				:
+			else
+    			    echo "$2_dev$count_ofservers" >> ./temp/hostnames
+                	    servers_added=$(( $servers_added + 1 ))
+			fi
+			count_ofservers=$(( $count_ofservers + 1 ))
+			if [[ $value -eq $servers_added ]]; then
+				break
+			fi
+		done
+		rm ./temp/fixedip
+		sort -V ./temp/hostnames >> ./temp/temphostnames
+		mv ./temp/temphostnames ./temp/hostnames
+		ip_prefix="192.168.0."
+		while IFS= read -r name; do
+    			number=$(echo "$name" | grep -oP '[0-9]+$')
+    			number=$(( $number+ 20 ))
+    			ip_address="${ip_prefix}${number}"
+    			echo "$ip_address" >> ./temp/fixedip
+		done < ./temp/hostnames
+		ansible-playbook ./ansible_files/deployservers.yaml  --extra-vars "variable=$2"
+		python3 ./python_files/config.py $2
+		python3 ./python_files/hosts.py $2
+		update_webserver=1
+		echo $(date +"%T") waiting for the webservers to active
+		while true; do
+         		if timeout 30 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts webservers -m ping 2>./temp/null | grep -q "UNREACHABLE" ; then
+                 		sleep 5s
+         		else
+                 		break
+         		fi
+		done
+	################################################################
+	elif [[ $present_servers -lt $reachable ]]; then
+	        pkill -f 'ansible'
+		value=$(( $reachable - $present_servers ))
+		echo "We need to remove $value servers to satisfy required number of servers"
+		tail -n "$value" "./temp/hostnames" > ./temp/deletehostnames
+	       	grep -v -F -x -f ./temp/deletehostnames ./temp/hostnames > ./temp/temphostnames
+		mv ./temp/temphostnames ./temp/hostnames	
+
+		tail -n "$value" "./temp/fixedip" > ./temp/deletefixedip
+                grep -v -F -x -f ./temp/deletefixedip ./temp/fixedip > ./temp/tempfixedip
+                mv ./temp/tempfixedip ./temp/fixedip
+		update_haproxy=1
+		ansible-playbook ./ansible_files/deleteservers.yaml
+		python3 ./python_files/config.py $2
+                python3 ./python_files/hosts.py $2
+		echo $(date +"%T") waiting for the webservers to active
+                while true; do
+                        if timeout 30 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts webservers -m ping 2>./temp/null | grep -q "UNREACHABLE" ; then
+                                sleep 5s
+                        else
+                                break
+                        fi
+                done
+	##################################################################
+	else
+		if timeout 30 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts webservers -m ping 2>./temp/null | grep -q "UNREACHABLE" ; then
+   			timeout 30 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts webservers -m ping | grep "SUCCESS" | awk '{print $1}' > ./temp/hostnames
+			rm ./temp/fixedip
+			sort -V ./temp/hostnames >> ./temp/temphostnames
+                	mv ./temp/temphostnames ./temp/hostnames
+                	ip_prefix="192.168.0."
+                	while IFS= read -r name; do
+                        	number=$(echo "$name" | grep -oP '[0-9]+$')
+                        	number=$(( $number+ 20 ))
+                        	ip_address="${ip_prefix}${number}"
+                        	echo "$ip_address" >> ./temp/fixedip
+                	done < ./temp/hostnames
+			python3 ./python_files/config.py $2
+                	python3 ./python_files/hosts.py $2
+			update_haproxy=1
+                fi
+	fi
+################################################################# 
+	if [[ $update_prometheus -eq 1 || $update_webserver -eq 1 || $update_haproxy -eq 1 ]]; then
+		echo  $(date +"%T") updating prometheus
+		python3 ./python_files/prometheus.py
+		ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/installprometheus.yaml
+	fi
+        if [[ $loop -eq 0 || $update_webserver -eq 1 ]]; then
+		echo  $(date +"%T") installing flask in webservers
+                ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/flasksnmp.yaml
+        fi
+	if [[ $loop -eq 0 || $update_haproxy -eq 1 || $update_webserver -eq 1 ]]; then
+		echo  $(date +"%T") updating the haproxy and backuphaproxy
+		python3 ./python_files/keepalived.py
+                ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/haproxytest.yaml
+        fi
+
+	time1=$(date +'%s')
+        time2=$(( $time1 - $time ))
+        if [ $time2 -lt 30 ]; then
+          	time2=$(( 30 - $time2 ))
+                echo $(date +"%T") we are having required number of servers ....sleeping for $time2 seconds
+               sleep $time2
+	fi
+	loop=$(( $loop + 1 ))
+################################################################3
 done
+

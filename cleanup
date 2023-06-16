@@ -1,6 +1,8 @@
 #!/bin/bash
+pkill -f 'ansible'
 . $1
-ansible-playbook remove_cleanup.yaml --extra-vars "variable=$2"
+ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts all -m ping | grep "SUCCESS" | awk '{print $1}' > ./temp/pingreachable
+ansible-playbook ./ansible_files/remove_cleanup.yaml --extra-vars "variable=$2"
 bastion_floating_ip=$(cat ./temp/bastionfloating)
 openstack floating ip delete "$bastion_floating_ip"
 haproxy_floating_ip=$(cat ./temp/haproxyfloating)

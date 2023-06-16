@@ -1,35 +1,21 @@
 #!/bin/bash
+#removing temp file if exists 
 if [ -d ./temp ]; then
   echo "deleting temp file "
   rm -r temp
 fi
 
-#creating temp directory for storing files
+#creating temp directory for storing temporary files while building
 mkdir ./temp  
-if [ -f ./hosts ]; then
-    echo "deleting hosts exists."
-    rm ./hosts
-fi
-if [ -f ./"$2"_SSHconfig ]; then
-    echo "deleting config exists."
-    rm ./"$2"_SSHconfig
-fi
 value=`cat server.conf`
 #echo "$value"
-if [ -f ./temp/hostnames ]; then
-    echo "deleting hostnames file if exists."
-    rm ./temp/hostnames
-fi
 for ((i = 1 ; i <= $value ; i++)); do
   echo "$2_dev$i" >> ./temp/hostnames
   echo "192.168.0.$((20 + i))" >> ./temp/fixedip
 done
-touch ./temp/config
 touch ./temp/availablefloatingip
-echo $2_SSHconfig >> ./temp/config
 echo ${3::-4} >> ./temp/publickeyfile
 . $1
-
 echo "checking no of floating ip and removing the floating ip's if more than 2"
 openstack floating ip list -f value | awk '{print $2}' >> ./temp/availablefloatingip
 if [ $(wc -l < ./temp/availablefloatingip) -gt 2 ]; then
@@ -37,17 +23,27 @@ if [ $(wc -l < ./temp/availablefloatingip) -gt 2 ]; then
 	tail -n +3 ./temp/availablefloatingip | xargs -I {} openstack floating ip delete {}
 fi
 
-ansible-playbook create_net_key.yaml --extra-vars "variable=$2 pubkey=$3"
-ansible-playbook security_group.yaml --extra-vars "variable=$2"
-ansible-playbook create_bastion.yaml --extra-vars "variable=$2"
-ansible-playbook create_haproxy.yaml --extra-vars "variable=$2"
-ansible-playbook deployservers.yaml  --extra-vars "variable=$2"
+ansible-playbook ./ansible_files/create_net_key.yaml --extra-vars "variable=$2 pubkey=$3"
+ansible-playbook ./ansible_files/security_group.yaml --extra-vars "variable=$2"
+ansible-playbook ./ansible_files/create_bastion.yaml --extra-vars "variable=$2"
+ansible-playbook ./ansible_files/create_haproxy.yaml --extra-vars "variable=$2"
+ansible-playbook ./ansible_files/deployservers.yaml  --extra-vars "variable=$2"
+
 echo "create hosts file and config file"
-python3 config.py $2
-python3 hosts.py $2
-python3 prometheus.py
-echo $(date +"%T") confirming ping of hosts
-#ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping1.yaml
-ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ping.yaml
+python3 ./python_files/config.py $2
+python3 ./python_files/hosts.py $2
+python3 ./python_files/prometheus.py
+echo $(date +"%T") waiting for the hosts to ping
+
+while true; do
+	 if timeout 30 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts all -m ping 2>./temp/null | grep -q "UNREACHABLE" ; then
+                 sleep 5s
+         else
+                 break
+         fi
+done
+#ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts all -m ping
+pkill -f 'ansible'
 echo $(date +"%T") install prometheus and configure
-ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts installprometheus.yaml
+ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/installprometheus.yaml
+

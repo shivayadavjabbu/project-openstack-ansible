@@ -1,0 +1,57 @@
+###this yaml file is used to create a security group
+- name: Create Security Group
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create Security Group
+      os_security_group:
+        state: present
+        name: "{{ variable }}_securitygroup"
+        description: "security group"
+      register: security_group
+
+    - name: Allow All Traffic within the Security Group
+      os_security_group_rule:
+        state: present
+        security_group: "{{ variable }}_securitygroup"
+        protocol: "any"
+        direction: ingress
+        remote_group: "{{ variable }}_securitygroup"
+
+    - name: Allow SSH (Port 22) from any IP
+      os_security_group_rule:
+        state: present
+        security_group: "{{ variable }}_securitygroup"
+        protocol: tcp
+        port_range_min: 22
+        port_range_max: 22
+        direction: ingress
+        remote_ip_prefix: 0.0.0.0/0
+
+    - name: Allow Port 5000 (TCP) within the Security Group
+      os_security_group_rule:
+        state: present
+        security_group: "{{ variable }}_securitygroup"
+        protocol: tcp
+        port_range_min: 5000
+        port_range_max: 5000
+        direction: ingress
+
+
+    - name: Allow Port 9090 (TCP) within the Security Group
+      os_security_group_rule:
+        state: present
+        security_group: "{{ variable }}_securitygroup"
+        protocol: tcp
+        port_range_min: 9090
+        port_range_max: 9090
+        direction: ingress
+
+    - name: Allow Port 6000 (UDP) within the Security Group
+      os_security_group_rule:
+        state: present
+        security_group: "{{ variable }}_securitygroup"
+        protocol: udp
+        port_range_min: 6000
+        port_range_max: 6000
+        direction: ingress

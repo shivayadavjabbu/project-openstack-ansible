@@ -1,3 +1,0 @@
-python3-pip
-ansible
-python3-openstackclient

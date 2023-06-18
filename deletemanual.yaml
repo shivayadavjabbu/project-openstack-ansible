@@ -1,8 +1,0 @@
----
-- hosts: localhost
-  tasks:
-  - name: delete server
-    os_server:
-      name: '{{ item }}'
-      state: absent
-    with_items: "{{ lookup('file', './temp/deleteadded').splitlines() }}"

@@ -15,8 +15,9 @@ for ((i = 1 ; i <= $value ; i++)); do
 done
 touch ./temp/availablefloatingip
 echo ${3::-4} >> ./temp/publickeyfile
+cp $3 ./temp/publickey
 . $1
-ansible-playbook ./ansible_files/create_net_key.yaml --extra-vars "variable=$2 pubkey=$3"
+ansible-playbook ./ansible_files/create_net_key.yaml --extra-vars "variable=$2"
 ansible-playbook ./ansible_files/security_group.yaml --extra-vars "variable=$2"
 
 ###################################################

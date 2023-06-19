@@ -7,7 +7,7 @@
     os_keypair:
       state: present
       name: "{{ variable }}_key"
-      public_key_file: "{{ pubkey }}"
+      public_key_file: ../temp/publickey
   - name: Create the test network
     os_network:
       state: present

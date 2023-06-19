@@ -16,34 +16,89 @@ done
 touch ./temp/availablefloatingip
 echo ${3::-4} >> ./temp/publickeyfile
 . $1
-echo "checking no of floating ip and removing the floating ip's if more than 2"
-openstack floating ip list -f value | awk '{print $2}' >> ./temp/availablefloatingip
-if [ $(wc -l < ./temp/availablefloatingip) -gt 2 ]; then
-	echo "We have more than two floating ip's "
-	tail -n +3 ./temp/availablefloatingip | xargs -I {} openstack floating ip delete {}
-fi
-
 ansible-playbook ./ansible_files/create_net_key.yaml --extra-vars "variable=$2 pubkey=$3"
 ansible-playbook ./ansible_files/security_group.yaml --extra-vars "variable=$2"
-ansible-playbook ./ansible_files/create_bastion.yaml --extra-vars "variable=$2"
-ansible-playbook ./ansible_files/create_haproxy.yaml --extra-vars "variable=$2"
-ansible-playbook ./ansible_files/deployservers.yaml  --extra-vars "variable=$2"
 
-echo "create hosts file and config file"
+###################################################
+echo  $(date +"%T") Creating the port and floating ip for haproxy
+
+network_id=$(cat "./temp/testnetwork.id")
+subnet_id=$(cat "./temp/testsubnet.id")
+port_id=$(openstack port list --fixed-ip subnet="$subnet_id",ip-address="192.168.0.4" -c ID -f value)
+if [[ -n "$port_id" ]]; then
+    :
+  else
+    port_id=$(openstack port create -f value -c id --network=$network_id --fixed-ip subnet="$subnet_id",ip-address="192.168.0.4"  --security-group=$2_securitygroup "$2"_port)
+fi
+
+floating_ip=$(openstack floating ip list -f value -c 'Floating IP Address' --fixed-ip-address "192.168.0.4")
+if [ -n "$floating_ip" ]; then
+	:
+else
+	unused_ips=$(openstack floating ip list --status DOWN --long -f value -c 'Floating IP Address')
+	if [ -n "$unused_ips" ]; then
+    		floating_ip=$(echo "$unused_ips" | head -n 1)
+		floating_ip_id=$(openstack floating ip show $floating_ip -f value -c id)
+                openstack floating ip set $floating_ip_id --port "$port_id"
+	else
+    		floating_ip=$(openstack floating ip create ext-net -f value -c 'floating_ip_address')
+                floating_ip_id=$(openstack floating ip show $floating_ip -f value -c id)
+                openstack floating ip set $floating_ip_id --port "$port_id"
+	fi
+fi
+
+echo "$floating_ip" > ./temp/haproxyfloating
+
+allowed_address=$(openstack port show -f value -c 'allowed_address_pairs' "$port_id")
+
+if grep -q "$floating_ip" <<< "$allowed_address"; then
+    	:
+  else
+	openstack port set --allowed-address ip-address=$floating_ip "$2_port"
+fi
+##########################################################
+echo $(date +"%T") Creating the bastion host
+ansible-playbook ./ansible_files/create_bastion.yaml --extra-vars "variable=$2" 
+echo $(date +"%T") Creating the haproxy and backuphaproxy
+ansible-playbook ./ansible_files/create_haproxy.yaml --extra-vars "variable=$2"
+echo $(date +"%T") Creating $value backend servers
+ansible-playbook ./ansible_files/deployservers.yaml  --extra-vars "variable=$2"
+echo  $(date +"%T") "create hosts file and config file"
 python3 ./python_files/config.py $2
 python3 ./python_files/hosts.py $2
-python3 ./python_files/prometheus.py
 echo $(date +"%T") waiting for the hosts to ping
-
 while true; do
 	 if timeout 30 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts all -m ping 2>./temp/null | grep -q "UNREACHABLE" ; then
-                 sleep 5s
+		 echo sleeping for more 5 secs as severs are all not active
+                 sleep 8
          else
                  break
          fi
 done
-#ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts all -m ping
-pkill -f 'ansible'
+#############################################################################
+echo  $(date +"%T") updating ports of haproxy and backuphaproxy
+port_ofhaproxy=$(openstack port list --fixed-ip ip-address=192.168.0.11 -c ID -f value)
+allowed_address_haproxy=$(openstack port show -f value -c 'allowed_address_pairs' "$port_ofhaproxy")
+if grep -q "192.168.0.4" <<< "$allowed_address_haproxy"; then
+        :
+  else
+       update_haproxyport=$(openstack port set --allowed-address ip-address=192.168.0.4 "$port_ofhaproxy")
+fi
+port_ofbakcuphaproxy=$(openstack port list --fixed-ip ip-address=192.168.0.12 -c ID -f value)
+allowed_address_ofbakcuphaproxy=$(openstack port show -f value -c 'allowed_address_pairs' "$port_ofbakcuphaproxy")
+if grep -q "192.168.0.4" <<< "$allowed_address_ofbakcuphaproxy"; then
+       	:
+  else
+       update_bakcuphaproxyport=$(openstack port set --allowed-address ip-address=192.168.0.4 "$port_ofbakcuphaproxy")
+fi
+###########################################################################333
 echo $(date +"%T") install prometheus and configure
 ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/installprometheus.yaml
-
+echo $(date +"%T") install flask on webservers
+ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/flasksnmp.yaml
+echo $(date +"%T") configuring the haproxy and backup haproxy
+python3 ./python_files/keepalived.py
+ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/haproxytest.yaml --extra-vars "variable=$2"
+bastion_ip=$(cat ./temp/bastionfloating)
+echo $(date +"%T") "prometheus is running on bastion host with ip $bastion_ip:9090 "
+echo $(date +"%T") "Haproxy Floating ip $floating_ip:5000 (tcp), $floating_ip:6000(udp)"

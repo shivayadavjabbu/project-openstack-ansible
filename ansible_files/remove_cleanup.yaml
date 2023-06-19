@@ -13,13 +13,7 @@
       network: ext-net
       server: "{{ variable }}_bastion"
     ignore_errors: yes
-  - name: delete floating ip of haproxy
-    os_floating_ip:
-      state: absent
-      floating_ip_address: "{{ lookup('file', '../temp/haproxyfloating') }}"
-      server: "{{ variable }}_haproxy"
-      network: ext-net
-    ignore_errors: yes
+
   - name: delete all servers
     os_server:
       name: '{{ item }}'

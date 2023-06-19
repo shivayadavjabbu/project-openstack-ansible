@@ -49,6 +49,21 @@ do
                                 break
                         fi
                 done
+		echo  $(date +"%T") updating ports of haproxy and backuphaproxy
+		port_ofhaproxy=$(openstack port list --fixed-ip ip-address=192.168.0.11 -c ID -f value)
+		allowed_address_haproxy=$(openstack port show -f value -c 'allowed_address_pairs' "$port_ofhaproxy")
+		if grep -q "192.168.0.4" <<< "$allowed_address_haproxy"; then
+        		:
+  		else
+       			update_haproxyport=$(openstack port set --allowed-address ip-address=192.168.0.4 "$port_ofhaproxy")
+		fi
+		port_ofbakcuphaproxy=$(openstack port list --fixed-ip ip-address=192.168.0.12 -c ID -f value)
+		allowed_address_ofbakcuphaproxy=$(openstack port show -f value -c 'allowed_address_pairs' "$port_ofbakcuphaproxy")
+		if grep -q "192.168.0.4" <<< "$allowed_address_ofbakcuphaproxy"; then
+        		:
+ 		else
+       			update_bakcuphaproxyport=$(openstack port set --allowed-address ip-address=192.168.0.4 "$port_ofbakcuphaproxy")
+		fi
         fi
 ##################################################################
 	###checking the backend servers and installing the newservers updating the hosts and config file. 
@@ -144,14 +159,14 @@ do
 		python3 ./python_files/prometheus.py
 		ansible-playbook --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/installprometheus.yaml
 	fi
-        if [[ $loop -eq 0 || $update_webserver -eq 1 ]]; then
+        if [[ $update_webserver -eq 1 ]]; then
 		echo  $(date +"%T") installing flask in webservers
                 ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/flasksnmp.yaml
         fi
-	if [[ $loop -eq 0 || $update_haproxy -eq 1 || $update_webserver -eq 1 ]]; then
+	if [[ $update_haproxy -eq 1 || $update_webserver -eq 1 ]]; then
 		echo  $(date +"%T") updating the haproxy and backuphaproxy
 		python3 ./python_files/keepalived.py
-                ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/haproxytest.yaml
+                ansible-playbook  --ssh-common-args "-F "$2"_SSHconfig" -i hosts ./ansible_files/haproxytest.yaml --extra-vars "variable=$2"
         fi
 
 	time1=$(date +'%s')

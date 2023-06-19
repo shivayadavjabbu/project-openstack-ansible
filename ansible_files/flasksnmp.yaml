@@ -25,10 +25,10 @@
     apt:
       name: nginx
       state: latest
-  - name: make sure snmp is installed
+  - name: install snmp
     apt: name=snmp state=latest
 
-  - name: make sure snmpd is installed
+  - name: install snmpd
     apt: name=snmpd state=present
 
   - name: install python3-venv
@@ -41,7 +41,7 @@
       state: latest
       virtualenv: /home/ubuntu/project/venv
 
-  - name: install falsk in venv
+  - name: install flask in venv
     pip:
       name: flask
       state: latest

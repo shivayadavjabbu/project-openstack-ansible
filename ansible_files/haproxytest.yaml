@@ -69,6 +69,13 @@
     copy:
       src: ../temp/keepalived.conf
       dest: /etc/keepalived/keepalived.conf
+    when: inventory_hostname == "{{ variable }}_haproxy"
+
+  - name: Copy Keepalived configuration file
+    copy:
+      src: ../temp/keepalivedbackup.conf
+      dest: /etc/keepalived/keepalived.conf
+    when: inventory_hostname == "{{ variable }}_backuphaproxy"
 
   - name: Enable and start Keepalived service
     service:
@@ -76,6 +83,13 @@
       state: started
       enabled: true
 
+  - name: Set net.ipv4.ip_nonlocal_bind
+    become: true
+    sysctl:
+     name: net.ipv4.ip_nonlocal_bind
+     value: "1"
+     sysctl_file: /etc/sysctl.conf
+     reload: yes
 
   - name: haproxy redumentary function test-1
     uri: url=http://localhost:5000/ return_content=yes

@@ -8,14 +8,18 @@
       name: "{{ variable }}_haproxy"
       image: Ubuntu 22.04.1 Jammy Jellyfish 230124
       flavor: "{{ lookup('file', '../flavor') }}"
-      auto_floating_ip: yes
+      auto_floating_ip: no
       security_groups: "{{ variable }}_securitygroup"
       key_name: "{{ variable }}_key"
       nics:
         - net-id: "{{ lookup('file', '../temp/testnetwork.id') }}"
           fixed_ip: 192.168.0.11
-    register: devhaproxy
-  - local_action: copy content={{ devhaproxy.openstack.public_v4 }} dest=../temp/haproxyfloating
+            #userdata: |
+        #cloud_config
+        #runcmd:
+        # - sysctl -w net.ipv4.ip_nonlocal_bind=1
+    async: 60
+    poll: 0
   - name: Create server backuphaproxy
     os_server:
       state: present

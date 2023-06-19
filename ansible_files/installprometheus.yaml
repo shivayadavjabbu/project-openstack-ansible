@@ -1,7 +1,7 @@
 ---
 - name: Install and configure Prometheus
   hosts: all
-  gather_facts: false
+  gather_facts: true
   become: true
   tasks:
     - name: Update cache
@@ -16,12 +16,11 @@
         state: present
         update_cache: yes
 - hosts: Bastionhost
-  gather_facts: false
   become: true
   tasks:
     - name: Configure Prometheus
       template:
-        src: ../temp/prometheus.yml
+        src: ../flask/prometheus.yaml
         dest: /etc/prometheus/prometheus.yml
     - name: restart prometheus
       systemd:

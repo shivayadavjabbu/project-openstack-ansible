@@ -1,12 +1,16 @@
 #!/bin/bash
 pkill -f 'ansible'
 . $1
+echo $(date +"%T") Listing all servers to delete
 ansible --ssh-common-args "-F "$2"_SSHconfig" -i hosts all -m ping | grep "SUCCESS" | awk '{print $1}' > ./temp/pingreachable
+echo $(date +"%T") deleting the port and floating ip of haproxy
+openstack port delete ""$2"_port"
+haproxy_floating_ip=$(cat ./temp/haproxyfloating)
+openstack floating ip delete "$haproxy_floating_ip"
+
 ansible-playbook ./ansible_files/remove_cleanup.yaml --extra-vars "variable=$2"
 bastion_floating_ip=$(cat ./temp/bastionfloating)
 openstack floating ip delete "$bastion_floating_ip"
-haproxy_floating_ip=$(cat ./temp/haproxyfloating)
-openstack floating ip delete "$haproxy_floating_ip"
 rm -r ./temp
 rm ./hosts
 rm ./"$2"_SSHconfig

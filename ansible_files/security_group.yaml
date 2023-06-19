@@ -28,7 +28,7 @@
         direction: ingress
         remote_ip_prefix: 0.0.0.0/0
 
-    - name: Allow Port 5000 (TCP) within the Security Group
+    - name: Allow Port 5000 (TCP) from any
       os_security_group_rule:
         state: present
         security_group: "{{ variable }}_securitygroup"
@@ -38,7 +38,7 @@
         direction: ingress
 
 
-    - name: Allow Port 9090 (TCP) within the Security Group
+    - name: Allow Port 9090 (TCP) from any
       os_security_group_rule:
         state: present
         security_group: "{{ variable }}_securitygroup"
@@ -47,7 +47,7 @@
         port_range_max: 9090
         direction: ingress
 
-    - name: Allow Port 6000 (UDP) within the Security Group
+    - name: Allow Port 6000 (UDP) from any
       os_security_group_rule:
         state: present
         security_group: "{{ variable }}_securitygroup"

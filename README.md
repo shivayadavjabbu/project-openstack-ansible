@@ -11,8 +11,8 @@ Latest version of OpenStack client
 
 #######File Structure### \
 The project consists of three main files:
-install: This file is responsible for setting up the initial OpenStack infrastructure. It creates a keypair, router, subnet, network, and a specified number of servers (as defined in server.conf). The file should be executed with the following command:
-            install <openrc> <tag> <ssh_key>
+install: This file is responsible for setting up the initial OpenStack infrastructure. It creates a keypair, router, subnet, network, and a specified number of servers (as defined in server.conf). The file should be executed with the following command: \
+install <openrc> <tag> <ssh_key>  \ 
 <openrc> refers to the OpenStack RC file, <tag> is a tag name for identification purposes, and <ssh_key> is the public key file used for server access.
 
 operate: Once the initial infrastructure is set up, the operate file manages the continuous operation of the OpenStack environment. It runs in an infinite loop and periodically checks the server.conf file for any updates. If the number of servers is modified, it either deletes or builds the required servers accordingly. Additionally, if servers are added or removed, it installs Flask and updates the HAProxy configuration. If only servers are down, it updates the HAProxy configuration without making any changes to the infrastructure.

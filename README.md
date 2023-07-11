@@ -1,4 +1,4 @@
-PROJECT-OPENSTACK ANSIBLE
+PROJECT-OPENSTACK ANSIBLE \
 This project automates the deployment, operation, and cleanup of OpenStack using Ansible. It provides a set of scripts that allow for easy setup and management of OpenStack infrastructure.
 The deployment machine needs to be updated with the latest version before proceeding.
 

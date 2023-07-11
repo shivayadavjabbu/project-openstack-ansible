@@ -6,8 +6,7 @@ The deployment machine needs to be updated with the latest version before procee
 Before running the scripts, ensure that the following components are installed and up to date:
 Latest version of Python 3 \
 Latest version of Ansible \
-Latest version of OpenStack client \ 
-
+Latest version of OpenStack client 
 
 #######File Structure### \
 The project consists of three main files:\

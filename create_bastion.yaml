@@ -1,0 +1,17 @@
+---
+- hosts: localhost
+  gather_facts: false
+  tasks:
+  - name: Create server instance BastionNSO
+    os_server:
+      state: present
+      name: "{{ variable }}_bastion"
+      image: "{{ lookup('file', '../image') }}"
+      flavor: "{{ lookup('file', '../flavor') }}"
+      security_groups: "{{ variable }}_securitygroup"
+      key_name: "{{ variable }}_key"
+      nics:
+        - net-id: "{{ lookup('file', '../temp/testnetwork.id') }}"
+          fixed_ip: 192.168.0.10
+    register: BastionET2594
+  - local_action: copy content={{ BastionET2594.openstack.public_v4 }} dest=../temp/bastionfloating

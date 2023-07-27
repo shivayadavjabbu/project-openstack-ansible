@@ -6,7 +6,7 @@
     os_server:
       state: present
       name: "{{ variable }}_haproxy"
-      image: Ubuntu 22.04.1 Jammy Jellyfish 230124
+      image: "{{ lookup('file', '../image') }}"
       flavor: "{{ lookup('file', '../flavor') }}"
       auto_floating_ip: no
       security_groups: "{{ variable }}_securitygroup"
@@ -24,7 +24,7 @@
     os_server:
       state: present
       name: "{{ variable }}_backuphaproxy"
-      image: Ubuntu 22.04.1 Jammy Jellyfish 230124
+      image: "{{ lookup('file', '../image') }}"
       flavor: "{{ lookup('file', '../flavor') }}"
       auto_floating_ip: no
       security_groups: "{{ variable }}_securitygroup"

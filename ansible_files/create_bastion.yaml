@@ -6,7 +6,7 @@
     os_server:
       state: present
       name: "{{ variable }}_bastion"
-      image: Ubuntu 22.04.1 Jammy Jellyfish 230124
+      image: "{{ lookup('file', '../image') }}"
       flavor: "{{ lookup('file', '../flavor') }}"
       security_groups: "{{ variable }}_securitygroup"
       key_name: "{{ variable }}_key"

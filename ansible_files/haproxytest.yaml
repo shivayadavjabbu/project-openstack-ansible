@@ -83,14 +83,6 @@
       state: started
       enabled: true
 
-  - name: Set net.ipv4.ip_nonlocal_bind
-    become: true
-    sysctl:
-     name: net.ipv4.ip_nonlocal_bind
-     value: "1"
-     sysctl_file: /etc/sysctl.conf
-     reload: yes
-
   - name: haproxy redumentary function test-1
     uri: url=http://localhost:5000/ return_content=yes
     register: html_body
@@ -118,24 +110,24 @@
 
 
   - name: checking snmpwalk -1
-    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.1.0"
+    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.5.0"
     register: "output"
   - debug: var=output.stdout_lines
 
   - name: checking snmpwalk -2
-    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.1.0"
+    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.5.0"
     register: "output"
   - debug: var=output.stdout_lines
 
   - name: checking snmp walk -3
-    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.1.0"
+    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.5.0"
     register: "output"
   - debug: var=output.stdout_lines
   - name: checking snmpwalk -4
-    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.1.0"
+    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.5.0"
     register: "output"
   - debug: var=output.stdout_lines
   - name: checking snmpwalk -5
-    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.1.0"
+    shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:6000 iso.3.6.1.2.1.1.5.0"
     register: "output"
   - debug: var=output.stdout_lines

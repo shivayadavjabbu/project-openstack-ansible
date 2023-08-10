@@ -15,23 +15,13 @@
     haproxy_frontend_port: 5000
 
   tasks:
-
   - name: Update cache
     become: yes
     apt:
       update_cache: yes
       cache_valid_time: 7200
 
-  - name: Installing packages
-    become: true
-    apt:
-      name: haproxy
-      state: latest
-  - name: install pip3
-    apt: name=python3-pip state=present update_cache=yes
-    tags: ansible
-
-  - name: Deploy HAProxy
+  - name: copy HAProxy
     template:
       src: ../flask/haproxy.conf
       dest: "/etc/haproxy/haproxy.cfg"
@@ -40,15 +30,6 @@
     service:
       name: haproxy
       state: restarted
-
-  - name: make sure snmp is installed
-    apt: name=snmp state=latest
-
-  - name: Installing the packages from Nginx
-    become: true
-    apt:
-      name: nginx
-      state: latest
 
   - name: copy nginx.conf file
     template:
@@ -60,18 +41,13 @@
       name: nginx
       state: restarted
 
-  - name: Install Keepalived
-    apt:
-      name: keepalived
-      state: present
-
-  - name: Copy Keepalived configuration file
+  - name: Copy Keepalived configuration file for haproxy
     copy:
       src: ../temp/keepalived.conf
       dest: /etc/keepalived/keepalived.conf
     when: inventory_hostname == "{{ variable }}_haproxy"
-
-  - name: Copy Keepalived configuration file
+ 
+  - name: Copy Keepalived configuration file for backuphaproxy
     copy:
       src: ../temp/keepalivedbackup.conf
       dest: /etc/keepalived/keepalived.conf

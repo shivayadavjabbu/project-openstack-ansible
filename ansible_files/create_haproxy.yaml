@@ -14,11 +14,8 @@
       nics:
         - net-id: "{{ lookup('file', '../temp/testnetwork.id') }}"
           fixed_ip: 192.168.0.11
-            #userdata: |
-        #cloud_config
-        #runcmd:
-        # - sysctl -w net.ipv4.ip_nonlocal_bind=1
-    async: 60
+      user_data: "{{ lookup('file', '../user_data/haproxy_userdata') }}"
+    async: 200
     poll: 0
   - name: Create server backuphaproxy
     os_server:
@@ -32,6 +29,7 @@
       nics:
         - net-id: "{{ lookup('file', '../temp/testnetwork.id') }}"
           fixed_ip: 192.168.0.12
-    async: 60
+      user_data: "{{ lookup('file', '../user_data/haproxy_userdata') }}"
+    async: 200
     poll: 0
-      
+    

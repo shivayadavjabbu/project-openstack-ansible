@@ -9,32 +9,11 @@
       update_cache: yes
       cache_valid_time: 7200
       force: yes
-  - name: install pip3
-    apt: name=python3-pip state=present update_cache=yes
-    tags: ansible
-
-  - name: install librerias dev
-    apt: name=libssl-dev state=present
-    tags: ansible
-
-  - name: install build-essential
-    apt: name=build-essential state=present
-    tags: ansible
-
-  - name: install nginx
-    apt:
-      name: nginx
-      state: latest
-  - name: install snmp
-    apt: name=snmp state=latest
-
-  - name: install snmpd
-    apt: name=snmpd state=present
-
   - name: install python3-venv
     pip:
       name: virtualenv
       state: latest
+
   - name: install wheel
     pip:
       name: wheel
@@ -46,11 +25,13 @@
       name: flask
       state: latest
       virtualenv: /home/ubuntu/project/venv
+
   - name: install gunicorn
     pip:
       name: gunicorn
       state: latest
       virtualenv: /home/ubuntu/project/venv
+
   - name: copy flask app
     copy: src=../flask/flaskapp.py dest=/home/ubuntu/project/flaskapp.py
   - name: copy wsgi

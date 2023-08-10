@@ -14,8 +14,9 @@
       nics:
         - net-id: "{{ lookup('file', '../temp/testnetwork.id') }}"
           fixed_ip: "{{ item.1 }}"
+      user_data: "{{ lookup('file', '../user_data/webservers_userdata') }}"
     with_together: 
         - "{{ lookup('file', '../temp/hostnames').splitlines() }}"
         - "{{lookup('file','../temp/fixedip').splitlines()}}"
-    async: 60
+    async: 200
     poll: 0

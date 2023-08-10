@@ -13,5 +13,6 @@
       nics:
         - net-id: "{{ lookup('file', '../temp/testnetwork.id') }}"
           fixed_ip: 192.168.0.10
+      user_data: "{{ lookup('file', '../user_data/bastion_userdata') }}"
     register: BastionET2594
   - local_action: copy content={{ BastionET2594.openstack.public_v4 }} dest=../temp/bastionfloating
